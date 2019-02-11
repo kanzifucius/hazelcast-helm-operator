@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hazelcast-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: hazelcast-operator
+  template:
+    metadata:
+      labels:
+        name: hazelcast-operator
+    spec:
+      serviceAccountName: hazelcast-operator
+      containers:
+        - name: hazelcast-operator
+          image: kanzifucius/hazelcast-helm-operator:v0.1
+          ports:
+          - containerPort: 60000
+            name: metrics
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "hazelcast-operator"

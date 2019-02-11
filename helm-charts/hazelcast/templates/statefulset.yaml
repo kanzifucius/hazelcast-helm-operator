@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "hazelcast.fullname" . }}
+  labels:
+    app: {{ template "hazelcast.name" . }}
+    chart: {{ template "hazelcast.chart" . }}
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.cluster.memberCount }}
+  selector:
+    matchLabels:
+      app: {{ template "hazelcast.name" . }}
+      release: "{{ .Release.Name }}"
+      role: hazelcast
+  template:
+    metadata:
+      labels:
+        app: {{ template "hazelcast.name" . }}
+        release: "{{ .Release.Name }}"
+        role: hazelcast
+      annotations:
+        sidecar.istio.io/inject: "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.hazelcast.prometheusPort }}"
+    spec:
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.image.pullSecrets }}
+        - name: {{ . }}
+        {{- end}}
+      {{- end}}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.gracefulShutdown.enabled }}
+      terminationGracePeriodSeconds: {{ .Values.gracefulShutdown.maxWaitSeconds }}
+      {{- end }}
+      initContainers:
+      - name: prometheus-jmx-exporter
+        image: kanzifucius/prometheus-jmx-exporter:0.11.0
+        env:
+        - name: SHARED_VOLUME_PATH
+          value: /shared-volume
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared-volume
+      containers:
+      - name: {{ template "hazelcast.fullname" . }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        ports:
+        - name: hazelcast
+          containerPort: 5701
+        {{- if .Values.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /hazelcast/health/node-state
+            port: 5701
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /hazelcast/health/node-state
+            port: 5701
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        {{- end }}
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared-volume
+        - name: hazelcast-storage
+          mountPath: /data/hazelcast
+        - name: hazelcast-prom-storage
+          mountPath: /opt/prom/config
+        env:
+        - name: JAVA_OPTS
+          value: "-javaagent:/shared-volume/jmx_prometheus_javaagent.jar={{ .Values.hazelcast.prometheusPort }}:/opt/prom/config/hazelcast-prom-config.yaml -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port={{ .Values.hazelcast.jmxPort }} -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dhazelcast.jmx=true -Dhazelcast.rest.enabled={{ .Values.hazelcast.rest }} -Dhazelcast.config=/data/hazelcast/hazelcast.xml -DserviceName={{ template "hazelcast.fullname" . }} -Dnamespace={{ .Release.Namespace }} -Dhazelcast.cacheName={{ .Values.hazelcast.cacheName }} -Dhazelcast.mancenter.enabled={{ .Values.mancenter.enabled }} -Dhazelcast.mancenter.url=http://{{ .Values.mancenter.host }}:{{ .Values.mancenter.service.port }}/hazelcast-mancenter {{ if .Values.gracefulShutdown.enabled }}-Dhazelcast.shutdownhook.policy=GRACEFUL -Dhazelcast.shutdownhook.enabled=true -Dhazelcast.graceful.shutdown.max.wait={{ .Values.gracefulShutdown.maxWaitSeconds }} {{ end }}{{ .Values.hazelcast.javaOpts }}"
+      serviceAccountName: {{ template "hazelcast.serviceAccountName" . }}
+      volumes:
+      - name: shared-volume
+        emptyDir: {}
+      - name: hazelcast-storage
+        configMap:
+          name: {{ template "hazelcast.fullname" . }}-configuration
+          items:
+            - key: hazelcast.xml
+              path: hazelcast.xml
+      - name: hazelcast-prom-storage
+        configMap:
+          name: {{ template "hazelcast.fullname" . }}-configuration
+          items:
+            - key: hazelcast-prom-config.yaml
+              path: hazelcast-prom-config.yaml

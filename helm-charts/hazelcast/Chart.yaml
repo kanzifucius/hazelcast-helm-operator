@@ -1,0 +1,17 @@
+name: hzop
+version: 0.0.1
+description: This chart is used for creating additional Hazelcast clusters
+keywords:
+- hazelcast
+- keyvalue
+- in-memory
+- database
+- caching
+home: http://hazelcast.org/
+icon: http://hazelcast.com/images/logos/Hazelcast-IMDG-Logo-Orange_Dark_Icon_200px.png
+sources:
+- https://github.com/hazelcast/hazelcast
+maintainers:
+- name: Mic Zingarelli
+  email: mic@bbd.co.za
+engine: gotpl

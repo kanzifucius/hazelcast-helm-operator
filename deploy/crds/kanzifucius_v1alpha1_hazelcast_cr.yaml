@@ -1,0 +1,10 @@
+apiVersion: kanzifucius.com/v1alpha1
+kind: Hazelcast
+metadata:
+  name: test
+spec:
+ # Cluster settings
+ cluster:
+  # memberCount is the number Hazelcast members
+  memberCount: 4
+  
