@@ -17,9 +17,9 @@ The chart includes prometheus jmx exporter to expose prometheus jmx metrics for 
 
 ## Deploy
 
-Deploy the crd
+Deploy the custom resource defintion
 ```
-kubectl create -f deploy/kanzifucius_v1alpha1_hazelcast_crd.yaml
+kubectl create -f deploy/crds/kanzifucius_v1alpha1_hazelcast_crd.yaml
 ```
 
 Deploy the operator 
@@ -29,6 +29,11 @@ kubectl create -f deploy/role.yaml
 kubectl create -f deploy/role_binding.yaml
 kubectl create -f deploy/operator.yaml
 ```
+Deploy cluster custom resource
+```
+kubectl create -f deploy/crds/kanzifucius_v1alpha1_hazelcast_cr.yaml
+```
+
 
 ## Build 
 Please see operator sdk documentation [helm user guide](https://github.com/operator-framework/operator-sdk/blob/master/doc/helm/user-guide.md)
